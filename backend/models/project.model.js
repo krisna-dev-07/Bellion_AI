@@ -13,7 +13,7 @@ const projectSchema=new mongoose.Schema({
     users: [
         {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'user'
+            ref: 'User'
         }
     ],
 })

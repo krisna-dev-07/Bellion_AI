@@ -166,10 +166,24 @@ const logoutUser = asyncHandler(async (req, res) => {
         .clearCookie("refreshToken", options)
         .json(new ApiResponse(200, {}, "User logged Out"))
 })
+ const getAllUsersController = asyncHandler(async (req, res) => {
+
+    const userId = req.user._id
+    if(!userId){
+        throw new ApiError(400,"UserId is required")
+    }
+     const users = await User.find({
+            _id: { $ne: userId }
+        });
+    return res.status(200).json(
+        new ApiResponse(200, users, "All users fetched successfully"))
+
+})
 
 export {
     registerUser,
     loginUser,
     userProfile,
-    logoutUser
+    logoutUser,
+    getAllUsersController
 };
