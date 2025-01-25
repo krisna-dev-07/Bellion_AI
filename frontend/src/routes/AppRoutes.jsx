@@ -3,6 +3,7 @@ import {BrowserRouter,Routes,Route} from 'react-router-dom'
 import Login from '../pages/Login'
 import Register from '../pages/Register'
 import Home from '../pages/Home'
+import Project from '../pages/project'
 
 
 const AppRoutes = () => {
@@ -12,6 +13,7 @@ const AppRoutes = () => {
     <Route path="/" element={<Home/>} />
     <Route path="/login" element={<Login/>} />
     <Route path="/register" element={<Register/>} />
+    <Route path="/project" element={<Project/>} />
    </Routes>
    </BrowserRouter>
   )

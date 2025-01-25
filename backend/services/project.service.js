@@ -21,7 +21,7 @@ export const createProject = async ({ name, users }) => {
     return await Project.create({ name, users });
 };
 
-export const getAllProjectsByUserId = async ({ userId }) => {
+export const getAllProjectById = async ({ userId }) => {
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
         throw new ApiError(401, "Valid userId is required");
     }
