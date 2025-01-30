@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect,useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from '../config/axios';
-
+import {initializeSocket,recieveMessage,sendMessage} from '../config/socket';
+import { UserContext } from '../context/user.context';
 const Project = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -13,6 +14,11 @@ const Project = () => {
 
   const [projects, setProjects] = useState(location.state?.project);
 
+  const { user } = useContext(UserContext);
+  const [message, setMessage] = useState(null)
+
+
+  // Function to add collaborators to the project
   function addCollaborators() {
     axios
       .put("/api/v1/projects/add-user", {
@@ -35,9 +41,26 @@ const Project = () => {
       });
   }
 
+  function send() { 
+    console.log(user);
+    
+    sendMessage('project-message',{
+      message,
+      sender:user._id
+    })
+    setMessage('')
+
+  }
+
+
 
   useEffect(() => {
 
+    initializeSocket(projects._id);
+
+    recieveMessage('project-message', (data) => {
+      console.log(data);
+    });
     axios.get(`api/v1/projects/get-project/${location.state.project._id}`).then(res => {
       // console.log("user info",res.data)
       setProjects(res.data.data)
@@ -128,11 +151,15 @@ const Project = () => {
         {/* Input Field */}
         <div className="inputField w-full flex absolute bottom-0 p-2 gap-2">
           <input
+          value={message}
+          onChange={(e)=>setMessage(e.target.value)}
             className="flex-grow p-2 px-4 border border-gray-300 rounded-full outline-none"
             type="text"
             placeholder="Enter your message"
           />
-          <button className="p-2 bg-emerald-400 text-white rounded-full flex items-center justify-center">
+          <button 
+          onClick={send}
+          className="p-2 bg-emerald-400 text-white rounded-full flex items-center justify-center">
             <i className="ri-send-plane-2-fill"></i>
           </button>
         </div>
@@ -163,6 +190,7 @@ const Project = () => {
               </div>)
             })}
           </div>
+          
         </div>
       </section>
 
