@@ -63,7 +63,10 @@ io.on('connection', socket => {
         socket.broadcast.to(socket.roomId).emit('project-message',data)
     })
 
-    
+    socket.on('disconnect', () => {
+        console.log('User disconnected');
+        socket.leave(socket.roomId);
+    });
 });
 
 
