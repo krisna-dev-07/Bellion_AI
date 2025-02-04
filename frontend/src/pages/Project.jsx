@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import axios from '../config/axios';
 import { initializeSocket, recieveMessage, sendMessage } from '../config/socket';
 import { UserContext } from '../context/user.context';
+import Markdown from 'markdown-to-jsx';
 
 const Project = () => {
   const location = useLocation();
@@ -46,26 +47,36 @@ const Project = () => {
   };
 
   useEffect(() => {
+    if (!projects._id) return;
+  
     initializeSocket(projects._id);
-
-    recieveMessage('project-message', (data) => {
-      setMessages(prevMessages => [...prevMessages, { ...data, outgoing: false }]);
-    });
-
-    axios.get(`api/v1/projects/get-project/${location.state.project._id}`)
+  
+    const handleMessage = (data) => {
+      setMessages(prev => {
+        if (prev.some(msg => msg.message === data.message && msg.sender._id === data.sender._id)) {
+          return prev;
+        }
+        return [...prev, { ...data, outgoing: false }];
+      });
+    };
+  
+    recieveMessage('project-message', handleMessage);
+  
+    return () => {
+      // Properly remove the event listener
+      recieveMessage('project-message', handleMessage);
+    };
+  }, [projects._id]);
+  
+  useEffect(() => {
+    axios.get(`/api/v1/projects/get-project/${projects._id}`)
       .then(res => setProjects(res.data.data))
       .catch(console.error);
 
     axios.get('/api/v1/users/all-user', { headers: { 'Cache-Control': 'no-cache' } })
-      .then(res => {
-        if (res.data && Array.isArray(res.data.data)) {
-          setUsers(res.data.data);
-        } else {
-          console.error('Users data not found in the response');
-        }
-      })
+      .then(res => setUsers(Array.isArray(res.data.data) ? res.data.data : []))
       .catch(console.error);
-  }, [projects._id, location.state.project._id]);
+  }, [projects._id]);
 
   useEffect(() => {
     if (messageBoxRef.current) {
@@ -74,13 +85,12 @@ const Project = () => {
   }, [messages]);
 
   const handleUserClick = (id) => {
-    setSelectedUserId(prevSelectedUserId => {
-      const newSelectedUserId = new Set(prevSelectedUserId);
-      newSelectedUserId.has(id) ? newSelectedUserId.delete(id) : newSelectedUserId.add(id);
-      return newSelectedUserId;
+    setSelectedUserId(prev => {
+      const updated = new Set(prev);
+      updated.has(id) ? updated.delete(id) : updated.add(id);
+      return updated;
     });
   };
-
   return (
     <main className="h-screen w-screen flex">
       <section className="left relative h-full flex flex-col min-w-96">
@@ -98,6 +108,8 @@ const Project = () => {
           <div
             ref={messageBoxRef}
             className="message-box p-1 flex-grow flex flex-col gap-1 overflow-y-auto max-h-[calc(100vh-200px)] scrollbar-hide"
+
+
             style={{
               scrollbarWidth: 'none', // Firefox
               msOverflowStyle: 'none', // IE/Edge
@@ -112,9 +124,23 @@ const Project = () => {
               `}
             </style>
             {messages.map((msg, index) => (
-              <div key={index} className={`message ${msg.outgoing ? 'self-end bg-emerald-200' : 'bg-emerald-100'} max-w-44 w-fit rounded-lg p-3 ${msg.outgoing ? 'ml-auto' : ''}`}>
+              <div
+                key={index}
+                className={`message flex flex-col p-2 w-fit rounded-md 
+                ${msg.sender._id === 'ai' ? 'max-w-80' : 'max-w-52'} 
+                ${msg.outgoing ? 'self-end bg-emerald-200 ml-auto' : 'bg-emerald-100'}`
+                }
+              >
+
+
                 <small className="opacity-65 text-xs">{msg.sender.email}</small>
-                <p className="text-sm">{msg.message}</p>
+                <p className='text-sm'>
+                  {msg.sender._id === 'ai' ?
+                    <div className='overflow-auto bg-emerald-100 text- p-2 rounded-md'>
+                      <Markdown>{msg.message}</Markdown>
+                    </div>
+                    : msg.message}
+                </p>
               </div>
             ))}
           </div>

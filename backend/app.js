@@ -22,9 +22,11 @@ app.use(cookieParser())                             //cookie-parser to do crud o
 
 import userRouter from './routes/user.route.js'
 import projectRouter from './routes/project.route.js'
+import aiRouter from './routes/ai.route.js'
 
 app.use("/api/v1/users",userRouter)
 app.use("/api/v1/projects",projectRouter)
+app.use("/api/v1/ai",aiRouter)
 
 
 

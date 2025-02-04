@@ -2,14 +2,15 @@ import dotenv from 'dotenv'
 dotenv.config({
     path: './.env'
 })
+console.log("GOOGLE_AI_KEY:", process.env.GOOGLE_AI_KEY); // Debugging
 import http from 'http'
 import app from './app.js'
 import connectDB from './db/db.js'
-import {Server} from 'socket.io'
+import { Server } from 'socket.io'
 import jwt from 'jsonwebtoken'
 import { mongoose } from 'mongoose'
 import { Project } from './models/project.model.js'
-
+import { generateContent } from './services/ai.service.js'
 
 const server = http.createServer(app);
 
@@ -21,11 +22,11 @@ const io = new Server(server, {
 });
 
 
-io.use(async(socket, next) => {
+io.use(async (socket, next) => {
 
     try {
 
-        const token = socket.handshake.auth?.token || socket.handshake.headers.authorization?.split(' ')[ 1 ];
+        const token = socket.handshake.auth?.token || socket.handshake.headers.authorization?.split(' ')[1];
         const projectId = socket.handshake.query.projectId;
         if (!mongoose.Types.ObjectId.isValid(projectId)) {
             return next(new Error('Invalid projectId'));
@@ -52,17 +53,40 @@ io.use(async(socket, next) => {
 })
 io.on('connection', socket => {
 
-   socket.roomId=socket.project._id.toString();
+    socket.roomId = socket.project._id.toString();
     console.log("User connected:");
 
     socket.join(socket.roomId);
-    socket.on('project-message',data=>{
 
-        console.log(data);
-        
-        socket.broadcast.to(socket.roomId).emit('project-message',data)
+    socket.on('project-message', async data => {
+
+        const message = data.message;
+
+        const aiIsPresentInMessage = message.includes('@ai');
+        socket.broadcast.to(socket.roomId).emit('project-message', data)
+
+        if (aiIsPresentInMessage) {
+
+
+            const prompt = message.replace('@ai', '');
+
+            const result = await generateContent(prompt);
+
+
+            io.to(socket.roomId).emit('project-message', {
+                message: result,
+                sender: {
+                    _id: 'ai',
+                    email: 'AI'
+                }
+            })
+
+
+            return
+        }
+
+
     })
-
     socket.on('disconnect', () => {
         console.log('User disconnected');
         socket.leave(socket.roomId);
