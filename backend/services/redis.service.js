@@ -1,8 +1,11 @@
+import dotenv from "dotenv";
+dotenv.config();
 import Redis from "ioredis";
-const redis=new Redis({
-    host:"redis-10631.c264.ap-south-1-1.ec2.redns.redis-cloud.com",
-    port:10631,
-    password:"l6DC40PHcnuUxNc5RYPTNv7i6dG0hqye"
+
+const redis = new Redis({
+    host: process.env.REDIS_HOST,
+    port: process.env.REDIS_PORT,
+    password: process.env.REDIS_PASSWORD
 });
 redis.on('connect',()=>{
     console.log("Redis connected");

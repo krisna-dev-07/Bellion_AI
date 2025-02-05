@@ -2,7 +2,7 @@ import dotenv from 'dotenv'
 dotenv.config({
     path: './.env'
 })
-console.log("GOOGLE_AI_KEY:", process.env.GOOGLE_AI_KEY); // Debugging
+
 import http from 'http'
 import app from './app.js'
 import connectDB from './db/db.js'
