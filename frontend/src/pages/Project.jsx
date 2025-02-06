@@ -7,6 +7,7 @@ import Markdown from 'markdown-to-jsx';
 import hljs from 'highlight.js/lib/core';
 import javascript from 'highlight.js/lib/languages/javascript';
 import 'highlight.js/styles/atom-one-dark.css';
+import { getWebContainer } from '../config/webContainer';
 
 hljs.registerLanguage('javascript', javascript);
 
@@ -39,6 +40,8 @@ const Project = () => {
   const [fileTree, setFileTree] = useState({});
   const [currentFile, setCurrentFile] = useState(null);
   const [openFiles, setOpenFiles] = useState([]);
+
+  const [webContainer, setWebContainer] = useState(null);
 
   const addCollaborators = () => {
     axios
@@ -90,6 +93,14 @@ const Project = () => {
 
     initializeSocket(projects._id);
 
+    if (!webContainer) {
+      getWebContainer().then(container => {
+        setWebContainer(container);
+        console.log("WebContainer initialized:", container);
+
+      });
+    }
+
     const handleMessage = (data) => {
       if (!data?.message) {
         console.error("Invalid message received:", data);
@@ -135,6 +146,11 @@ const Project = () => {
     };
 
     recieveMessage('project-message', handleMessage);
+
+    // ✅ Ensure webContainer is initialized before calling mount
+    if (webContainer && message.fileTree) {
+      webContainer.mount(message.fileTree);
+    }
 
     return () => {
       recieveMessage('project-message', handleMessage);
@@ -258,7 +274,7 @@ const Project = () => {
       </section>
 
       <section className="right  bg-emerald-50 flex-grow h-full flex">
-        <div className="explorer h-full max-w-64 min-w-52 bg-slate-200">
+        <div className="explorer h-full max-w-64 min-w-52 bg-emerald-300">
           <div className="file-tree w-full">
             {
               Object.keys(fileTree).map((file, index) => (
@@ -268,7 +284,7 @@ const Project = () => {
                     setCurrentFile(file)
                     setOpenFiles([...new Set([...openFiles, file])])
                   }}
-                  className="tree-element cursor-pointer p-2 px-4 flex items-center gap-2 bg-slate-300 w-full">
+                  className="tree-element cursor-pointer p-2 px-4 flex items-center gap-2 bg-emerald-300 w-full">
                   <i className="ri-file-fill"></i>
                   <h1>{file}</h1>
                 </button>
@@ -276,53 +292,95 @@ const Project = () => {
             }
           </div>
         </div>
-        {currentFile && (
-          <div className="code-editor flex flex-col flex-grow h-full shrink ">
-            <div className="top flex ">
-              {
-                openFiles.map((file, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentFile(file)}
-                    className={`open-file cursor-pointer p-2 px-4 flex items-center w-fit gap-2 bg-slate-300 ${currentFile === file ? 'bg-slate-400' : ''}`}>
-                    <i className="ri-file-fill"></i>
-                    <h1>{file}</h1>
-                  </button>
-                ))
-              }
+
+        <div className="code-editor flex flex-col flex-grow h-full shrink ">
+          <div className="top flex justify-between w-full ">
+            <div className="files flex">
+             
+            {
+              openFiles.map((file, index) => (
+                <button
+                key={index}
+                onClick={() => setCurrentFile(file)}
+                className={`open-file cursor-pointer p-2 px-4 flex items-center w-fit gap-2 bg-emerald-200 ${currentFile === file ? 'bg-emerald-400' : ''}`}>
+                  <i className="ri-file-fill"></i>
+                  <h1>{file}</h1>
+                </button>
+              ))
+            }
             </div>
-            <div className="bottom flex flex-grow max-w-full shrink overflow-auto">
-              {
-                fileTree[currentFile] && (
-                  <div className="code-editor-area h-full overflow-auto flex-grow bg-slate-50">
-                    <pre className="hljs h-full">
-                      <code
-                        className="hljs h-full outline-none"
-                        contentEditable
-                        suppressContentEditableWarning
-                        onBlur={(e) => {
-                          const updatedContent = e.target.innerText;
-                          setFileTree(prevTree => ({
-                            ...prevTree,
-                            [currentFile]: { file: { contents: updatedContent } }
-                          }));
-                        }}
-                        dangerouslySetInnerHTML={{
-                          __html: hljs.highlight(fileTree[currentFile]?.file?.contents || '', { language: 'javascript' }).value
-                        }}
-                        style={{
-                          whiteSpace: 'pre-wrap',
-                          paddingBottom: '25rem',
-                          counterSet: 'line-numbering',
-                        }}
-                      />
-                    </pre>
-                  </div>
-                )
-              }
-            </div>
+            <div className="actions flex gap-2">
+                <button
+                
+                  onClick={async () => {
+
+                    // Ensure WebContainer is initialized
+                    if (!webContainer) {
+                      console.error("WebContainer is not initialized.");
+                      return;
+                    }
+
+                    // Mount the file tree (ensuring all files exist)
+                    await webContainer.mount(fileTree);
+
+                    // ✅ Step 1: Install dependencies and wait until complete
+                    const installProcess = await webContainer.spawn("npm", ["install"]);
+                    await installProcess.exit; // Wait for the installation process to complete
+
+                    installProcess.output.pipeTo(new WritableStream({
+                      write(chunk) {
+                        console.log(chunk);
+                      }
+                    }));
+
+                    // ✅ Step 2: Start the server properly
+                    const runProcess = await webContainer.spawn("node", ["app.js"]);
+
+                    runProcess.output.pipeTo(new WritableStream({
+                      write(chunk) {
+                        console.log(chunk);
+                      }
+                    }));
+
+                  }}
+                  className='p-2 px-4 bg-emerald-200 text-black'
+                >
+                  Run
+                </button>
+              </div>
           </div>
-        )}
+          <div className="bottom flex flex-grow max-w-full shrink overflow-auto">
+            {
+              fileTree[currentFile] && (
+                <div className="code-editor-area h-full overflow-auto flex-grow bg-slate-50">
+                  <pre className="hljs h-full">
+                    <code
+                      className="hljs h-full outline-none"
+                      contentEditable
+                      suppressContentEditableWarning
+                      onBlur={(e) => {
+                        const updatedContent = e.target.innerText;
+                        setFileTree(prevTree => ({
+                          ...prevTree,
+                          [currentFile]: { file: { contents: updatedContent } }
+                        }));
+                      }}
+                      dangerouslySetInnerHTML={{
+                        __html: hljs.highlight(fileTree[currentFile]?.file?.contents || '', { language: 'javascript' }).value
+                      }}
+                      style={{
+                        whiteSpace: 'pre-wrap',
+                        paddingBottom: '25rem',
+                        counterSet: 'line-numbering',
+                      }}
+                    />
+                  </pre>
+                </div>
+              )
+            }
+          </div>
+        </div>
+
       </section>
 
       {isModalOpen && (
